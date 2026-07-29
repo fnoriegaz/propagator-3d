@@ -1,0 +1,5 @@
+parallelcalls.cu/.h   →  the CUDA kernels (parallelcalls.cu ≈ our stencil_cuda.cu / kernels.cuh)
+seriallcalls.c/.h     →  host-side orchestration: kernel launches, timeloop  (≈ our propagator.c)
+main.c                →  allocate, read input, call the timeloop            (≈ our apps/propagator_cli/main.c)
+definitions.h         →  constants                                          (≈ our stencil_math.h coefficients, config defines)
+structures.h          →  Grid, Pressure, CPML, inversion structs            (≈ our params.h / public struct definitions)
