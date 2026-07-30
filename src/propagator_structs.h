@@ -30,19 +30,19 @@ typedef struct SrcRecGeometry{
 }SrcRecGeometry;
 
 typedef struct CPML{
-	real_t *a_x;
-	real_t *b_x;
-	real_t *a_y;
-	real_t *b_y;
-	real_t *a_z;
-	real_t *b_z;
-
 	real_t *psi_x;
 	real_t *psi_y;
 	real_t *psi_z;
 	real_t *psi_vel_x;
 	real_t *psi_vel_y;
 	real_t *psi_vel_z;
+
+	real_t *a_x;
+	real_t *b_x;
+	real_t *a_y;
+	real_t *b_y;
+	real_t *a_z;
+	real_t *b_z;
 }CPML;
 
 typedef struct PropagatorSetup{
