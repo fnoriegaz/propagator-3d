@@ -6,17 +6,16 @@
 
 #include "propagator_structs.h"
 #include "../include/propagator/propagator.h"
-
+#include "kernels_constants.cuh"
+#include "kernels.cuh"
 
 PropagatorSetup *propagator_init(PropagatorConfig *config){
 	
-	cudaError_t error;
-
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
 	PropagatorFields *propagator_fields = (PropagatorFields *)calloc(1, sizeof(PropagatorFields));
 	InversionParams *inversion_params = (InversionParams *)calloc(1, sizeof(InversionParams));
-	SrcRecGeometry *sr_geometry = (SrcRecGeometry *)calloc(1, sizeof(sr_geometry));
-	CPML *cpml = (CPML *)calloc(1, sizeof(cpml));
+	SrcRecGeometry *sr_geometry = (SrcRecGeometry *)calloc(1, sizeof(SrcRecGeometry));
+	CPML *cpml = (CPML *)calloc(1, sizeof(CPML));
 
 	config->nx = 256;
 	config->ny = 256;
@@ -56,20 +55,19 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 	sr_geometry->h_source = (real_t *)calloc(config->timesamples, sizeof(real_t));
 	cudaMalloc((void **)&sr_geometry->d_gather, config->n_receivers_x*config->n_receivers_y*config->timesamples*sizeof(real_t));
 
-	//cudaMalloc((void **)&cpml->psi_y, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->a_x, config->nx*sizeof(real_t));
 	cudaMalloc((void **)&cpml->b_x, config->nx*sizeof(real_t));
 	cudaMalloc((void **)&cpml->a_y, config->ny*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->b_y, config->ny*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->a_z, config->nz*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->b_z, config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->b_y, config->ny*sizeof(real_t));
+	cudaMalloc((void **)&cpml->a_z, config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->b_z, config->nz*sizeof(real_t));
 
-	//cudaMalloc((void **)&cpml->psi_z, sizeof(real_t));
-	//cudaMalloc((void **)&cpml->psi_x, config->nx*config->ny*config->nz*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->psi_y, config->nx*config->ny*config->nz*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->psi_vel_x, config->nx*config->ny*config->nz*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->psi_vel_y, config->nx*config->ny*config->nz*sizeof(real_t));
-	//cudaMalloc((void **)&cpml->psi_vel_z, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_z, sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_x, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_y, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_vel_x, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_vel_y, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_vel_z, config->nx*config->ny*config->nz*sizeof(real_t));
 	
 	propagator_setup->propagator_config = config;
 	propagator_setup->propagator_fields = propagator_fields;
@@ -78,6 +76,23 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 	propagator_setup->cpml = cpml;
 
 	return propagator_setup;
+}
+
+
+void propagate(PropagatorSetup *setup){
+	
+	int nx = setup->propagator_config->nx;
+	int ny = setup->propagator_config->ny;
+	int nz = setup->propagator_config->nz;
+	int timesamples = setup->propagator_config->timesamples;
+
+	dim3 tpb(TPBX,TPBY,TPBZ);
+	dim3 bpg((TPBX+nx-1)/nx,(TPBY+ny-1)/ny,(TPBZ+nz)/nz);
+	
+	for(int t=0;t<timesamples;t++){
+		kernel_dpdt<<<bpg,tpb>>>(setup);
+	}
+
 }
 
 
