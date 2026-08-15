@@ -87,10 +87,23 @@ void propagate(PropagatorSetup *setup){
 	int timesamples = setup->propagator_config->timesamples;
 
 	dim3 tpb(TPBX,TPBY,TPBZ);
-	dim3 bpg((TPBX+nx-1)/nx,(TPBY+ny-1)/ny,(TPBZ+nz)/nz);
+	dim3 bpg((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY,(nz+TPBZ-1)/TPBZ);
 	
+	/*
+	printf("nx: %d\n",nx);
+	printf("ny: %d\n",ny);
+	printf("nz: %d\n",nz);
+	printf("timesamples: %d\n",timesamples);
+	*/
+
+	printf("TPBX: %d\n",TPBX);
 	for(int t=0;t<timesamples;t++){
 		kernel_dpdt<<<bpg,tpb>>>(setup);
+		cudaError_t error = cudaGetLastError();
+		if(error != cudaSuccess){
+			printf("a time error...\n");
+			exit(-1);
+		}
 	}
 
 }
@@ -102,6 +115,9 @@ int main(int argc, char *argv[]){
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
 	propagator_setup = propagator_init(&propagator_config);
 
+	propagate(propagator_setup);
+
+	printf("This is a check...\n");
 
 	free(propagator_setup);
 	return 0;
