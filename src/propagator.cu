@@ -89,14 +89,6 @@ void propagate(PropagatorSetup *setup){
 	dim3 tpb(TPBX,TPBY,TPBZ);
 	dim3 bpg((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY,(nz+TPBZ-1)/TPBZ);
 	
-	/*
-	printf("nx: %d\n",nx);
-	printf("ny: %d\n",ny);
-	printf("nz: %d\n",nz);
-	printf("timesamples: %d\n",timesamples);
-	*/
-
-	printf("TPBX: %d\n",TPBX);
 	for(int t=0;t<timesamples;t++){
 		kernel_dpdt<<<bpg,tpb>>>(setup);
 		cudaError_t error = cudaGetLastError();
