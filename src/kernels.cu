@@ -11,38 +11,28 @@ __global__ void kernel_add_source(PropagatorSetup *setup, integer_t src_idx, int
 
 }
 
-__global__ void kernel_cpml(PropagatorSetup *setup){
+__global__ void kernel_cpml(real_t *a, real_t *b, integer_t n, real_t freq, real_t r, real_t delta_x, real_t delta_t, real_t max_vel, int cpml_width){
 
 	integer_t tx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	real_t cpml_width = setup->propagator_config->cpml_width;
-	real_t lx = cpml_width * setup->propagator_config->delta_x;
-	real_t ly = cpml_width * setup->propagator_config->delta_y;
-	real_t lz = cpml_width * setup->propagator_config->delta_z;
-
-	real_t d0_x = -3 * log(setup->propagator_config->r) / (2 * lx);
-	real_t d0_y = -3 * log(setup->propagator_config->r) / (2 * ly);
-	real_t d0_z = -3 * log(setup->propagator_config->r) / (2 * lz);
-
+	real_t lx = cpml_width * delta_x;
+	real_t d0_x = -3 * log(r) / (2 * lx);
 	real_t fx = 0.0;
-	real_t fy = 0.0;
-	real_t fz = 0.0;
-
 	real_t alpha_x = 0.0;
-	real_t alpha_y = 0.0;
-	real_t alpha_z = 0.0;
+	real_t dx;
 
-	real_t dx,dy,dz;
-
-	//compute x axis cpml
 	if(tx < cpml_width){
-		fx = setup->propagator_config->delta_x * (cpml_width-tx-1);
+		fx = delta_x * (cpml_width-tx-1);
 	}
-	dx = d0_x * setup->propagator_config->max_vel * (fx/lx) * (fx/lx);
-	alpha_x = PI * setup->propagator_config->freq * (lx-fx) / lx;
 
-	setup->cpml->a_x[tx] = expf(-(dx + alpha_x) * setup->propagator_config->delta_t);
-	setup->cpml->b_x[tx] = (dx / (dx + alpha_x)) * (setup->cpml->a_x[tx] - 1.0);
+	if(tx > (n - cpml_width - 1) && tx < n){
+		fx = (tx - (n - cpml_width)) * delta_x;
+	}
+	dx = d0_x * max_vel * (fx/lx) * (fx/lx);
+	alpha_x = PI * freq * (lx-fx) / lx;
+
+	a[tx] = expf(-(dx + alpha_x) * delta_t);
+	b[tx] = (dx / (dx + alpha_x)) * (a[tx] - 1.0);
 
 }
 
