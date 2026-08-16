@@ -24,6 +24,7 @@ typedef struct PropagatorConfig{
 	real_t r;
 	real_t freq;
 	real_t propagation_time;
+	real_t max_vel;
 
 }PropagatorConfig;
 

@@ -52,7 +52,7 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 	inversion_params->h_velocity = (real_t *)calloc(config->nx*config->ny*config->nz, sizeof(real_t));
 	inversion_params->h_density = (real_t *)calloc(config->nx*config->ny*config->nz, sizeof(real_t));
 
-	sr_geometry->h_source = (real_t *)calloc(config->timesamples, sizeof(real_t));
+	cudaMalloc((void **)&sr_geometry->d_source, config->timesamples*sizeof(real_t));
 	cudaMalloc((void **)&sr_geometry->d_gather, config->n_receivers_x*config->n_receivers_y*config->timesamples*sizeof(real_t));
 
 	cudaMalloc((void **)&cpml->a_x, config->nx*sizeof(real_t));
@@ -81,10 +81,10 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 
 void propagate(PropagatorSetup *setup){
 	
-	int nx = setup->propagator_config->nx;
-	int ny = setup->propagator_config->ny;
-	int nz = setup->propagator_config->nz;
-	int timesamples = setup->propagator_config->timesamples;
+	integer_t nx = setup->propagator_config->nx;
+	integer_t ny = setup->propagator_config->ny;
+	integer_t nz = setup->propagator_config->nz;
+	integer_t timesamples = setup->propagator_config->timesamples;
 
 	dim3 tpb(TPBX,TPBY,TPBZ);
 	dim3 bpg((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY,(nz+TPBZ-1)/TPBZ);
