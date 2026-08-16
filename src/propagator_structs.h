@@ -22,7 +22,7 @@ typedef struct InversionParams{
 }InversionParams;
 
 typedef struct SrcRecGeometry{
-	real_t *h_source;
+	real_t *d_source;
 	real_t *d_gather;
 
 	integer_t *src_positions;

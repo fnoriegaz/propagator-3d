@@ -11,4 +11,6 @@
 
 __global__ void kernel_dpdt(PropagatorSetup *setup);
 
+__global__ void kernel_dvdxyz(PropagatorSetup *setup);
+
 #endif
