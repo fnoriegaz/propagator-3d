@@ -9,6 +9,14 @@
 #include "kernels_constants.cuh"
 #include "kernels.cuh"
 
+
+void print_cuda_error(cudaError_t error, const char *filename, const char *function_name, int line){
+	if(error != cudaSuccess){
+		printf("in function %s, file %s, line %d, cuda error: %d...\n", function_name, filename, line, error);
+		exit(-1);
+	}
+}
+
 PropagatorSetup *propagator_init(PropagatorConfig *config){
 	
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
@@ -62,9 +70,9 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 	cudaMalloc((void **)&cpml->a_z, config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->b_z, config->nz*sizeof(real_t));
 
-	cudaMalloc((void **)&cpml->psi_z, sizeof(real_t));
 	cudaMalloc((void **)&cpml->psi_x, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->psi_y, config->nx*config->ny*config->nz*sizeof(real_t));
+	cudaMalloc((void **)&cpml->psi_z, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->psi_vel_x, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->psi_vel_y, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMalloc((void **)&cpml->psi_vel_z, config->nx*config->ny*config->nz*sizeof(real_t));
@@ -80,7 +88,8 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 
 
 void propagate(PropagatorSetup *setup){
-	
+
+	cudaError_t error;
 	integer_t nx = setup->propagator_config->nx;
 	integer_t ny = setup->propagator_config->ny;
 	integer_t nz = setup->propagator_config->nz;
@@ -88,14 +97,32 @@ void propagate(PropagatorSetup *setup){
 
 	dim3 tpb(TPBX,TPBY,TPBZ);
 	dim3 bpg((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY,(nz+TPBZ-1)/TPBZ);
-	
+
+	kernel_cpml<<<(nx+TPBX-1)/TPBX,TPBX>>>(setup->cpml->a_x, setup->cpml->b_x, nx, setup->propagator_config->freq,
+				 setup->propagator_config->r, setup->propagator_config->delta_x, setup->propagator_config->delta_t,
+				 setup->propagator_config->max_vel, setup->propagator_config->cpml_width);
+	error = cudaGetLastError();
+	print_cuda_error(error,__FILE__,__func__,__LINE__);
+
+	kernel_cpml<<<(ny+TPBY-1)/TPBY,TPBY>>>(setup->cpml->a_y, setup->cpml->b_y, ny, setup->propagator_config->freq,
+				 setup->propagator_config->r, setup->propagator_config->delta_y, setup->propagator_config->delta_t,
+				 setup->propagator_config->max_vel, setup->propagator_config->cpml_width);
+	error = cudaGetLastError();
+	print_cuda_error(error,__FILE__,__func__,__LINE__);
+
+	kernel_cpml<<<(nz+TPBZ-1)/TPBZ,TPBZ>>>(setup->cpml->a_z, setup->cpml->b_z, nz, setup->propagator_config->freq,
+				 setup->propagator_config->r, setup->propagator_config->delta_z, setup->propagator_config->delta_t,
+				 setup->propagator_config->max_vel, setup->propagator_config->cpml_width);
+	error = cudaGetLastError();
+	print_cuda_error(error,__FILE__,__func__,__LINE__);
+
 	for(int t=0;t<timesamples;t++){
 		kernel_dpdt<<<bpg,tpb>>>(setup);
-		cudaError_t error = cudaGetLastError();
-		if(error != cudaSuccess){
-			printf("a time error...\n");
-			exit(-1);
-		}
+		error = cudaGetLastError();
+		print_cuda_error(error,__FILE__,__func__,__LINE__);
+		kernel_dvdxyz<<<bpg,tpb>>>(setup);
+		error = cudaGetLastError();
+		print_cuda_error(error,__FILE__,__func__,__LINE__);
 	}
 
 }

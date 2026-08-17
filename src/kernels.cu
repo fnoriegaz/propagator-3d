@@ -106,7 +106,6 @@ __global__ void kernel_dvdxyz(PropagatorSetup *setup){
 		setup->cpml->psi_y[tid_global] = r_psi_y;
 		setup->cpml->psi_z[tid_global] = r_psi_z;
 
-
 	}
 
 }
