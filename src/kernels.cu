@@ -3,13 +3,14 @@
 
 __global__ void kernel_add_source(PropagatorSetup *setup, integer_t src_idx, int t){
 
-	integer_t src_x = setup->sr_geometry->src_positions[3*src_idx];
-	integer_t src_y = setup->sr_geometry->src_positions[3*src_idx+1]*setup->propagator_config->nx;
-	integer_t src_z = setup->sr_geometry->src_positions[3*src_idx+2]*setup->propagator_config->nx*setup->propagator_config->ny;
+	integer_t src_x = setup->sr_geometry->d_src_positions[3*src_idx];
+	integer_t src_y = setup->sr_geometry->d_src_positions[3*src_idx+1]*setup->propagator_config->nx;
+	integer_t src_z = setup->sr_geometry->d_src_positions[3*src_idx+2]*setup->propagator_config->nx*setup->propagator_config->ny;
 
 	setup->propagator_fields->p[src_x+src_y+src_z] += setup->sr_geometry->d_source[t];
 
 }
+
 
 __global__ void kernel_cpml(real_t *a, real_t *b, integer_t n, real_t freq, real_t r, real_t delta_x, real_t delta_t, real_t max_vel, int cpml_width){
 
@@ -60,7 +61,7 @@ __global__ void kernel_dpdt(PropagatorSetup *setup){
 
 		setup->propagator_fields->p[tid_global] = setup->propagator_fields->p[tid_global] -
 			setup->propagator_config->delta_t * r_velocity * r_velocity * setup->inversion_params->d_density[tid_global] * (
-				dvx_dx + dvy_dy + dvz_dz
+				dvx_dx + dvy_dy + dvz_dz + r_psi_vel_x + r_psi_vel_y + r_psi_vel_z
 		);
 
 		setup->cpml->psi_vel_x[tid_global] = r_psi_vel_x;
@@ -94,13 +95,13 @@ __global__ void kernel_dvdxyz(PropagatorSetup *setup){
 		r_psi_z = r_psi_z * setup->cpml->a_z[tz] + setup->cpml->b_z[tz] * dp_dz;
 
 		setup->propagator_fields->vel_x[tid_global] = setup->propagator_fields->vel_x[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * dp_dx  + r_psi_x;
+			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dx  + r_psi_x);
 
 		setup->propagator_fields->vel_y[tid_global] = setup->propagator_fields->vel_y[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * dp_dy  + r_psi_y;
+			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dy  + r_psi_y);
 
 		setup->propagator_fields->vel_z[tid_global] = setup->propagator_fields->vel_z[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * dp_dz  + r_psi_z;
+			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dz  + r_psi_z);
 
 		setup->cpml->psi_x[tid_global] = r_psi_x;
 		setup->cpml->psi_y[tid_global] = r_psi_y;

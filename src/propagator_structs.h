@@ -22,11 +22,15 @@ typedef struct InversionParams{
 }InversionParams;
 
 typedef struct SrcRecGeometry{
+	real_t *h_source;
 	real_t *d_source;
+	real_t *h_gather;
 	real_t *d_gather;
 
-	integer_t *src_positions;
-	integer_t *rec_positions;
+	integer_t *h_src_positions;
+	integer_t *h_rec_positions;
+	integer_t *d_src_positions;
+	integer_t *d_rec_positions;
 }SrcRecGeometry;
 
 typedef struct CPML{
