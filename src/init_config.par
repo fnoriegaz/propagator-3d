@@ -1,0 +1,16 @@
+nx           256
+ny           256
+nz           256
+delta_x      25.0
+delta_y      25.0
+delta_z      25.0
+delta_t      0.001
+timesamples  10000
+max_vel      1500.0
+density      2600.0
+cpml_width   32
+cpml_r       1e-4
+freq         3.0
+src_x        128
+src_y        128
+src_z        32

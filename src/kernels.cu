@@ -68,7 +68,6 @@ __global__ void kernel_dpdt(PropagatorSetup *setup){
 		setup->cpml->psi_vel_y[tid_global] = r_psi_vel_y;
 		setup->cpml->psi_vel_z[tid_global] = r_psi_vel_z;
 	}
-
 }
 
 __global__ void kernel_dvdxyz(PropagatorSetup *setup){
@@ -108,6 +107,5 @@ __global__ void kernel_dvdxyz(PropagatorSetup *setup){
 		setup->cpml->psi_z[tid_global] = r_psi_z;
 
 	}
-
 }
 

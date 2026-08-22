@@ -28,7 +28,7 @@ void custom_init(PropagatorSetup *setup){
 
 	setup->sr_geometry->h_src_positions[0] = nx / 2;
 	setup->sr_geometry->h_src_positions[1] = ny / 2;
-	setup->sr_geometry->h_src_positions[2] = 32;
+	setup->sr_geometry->h_src_positions[2] = 48;
 
 	for(integer_t t=0;t<timesamples;t++){
 		real_t tt = (t * setup->propagator_config->delta_t) * (t * setup->propagator_config->delta_t);
@@ -57,10 +57,31 @@ void custom_init(PropagatorSetup *setup){
 	error = cudaGetLastError();
 	print_cuda_error(error,__FILE__,__func__,__LINE__);
 
-
 }
 
-PropagatorSetup *propagator_init(PropagatorConfig *config){
+PropagatorSetup *propagator_init(PropagatorConfig *config, const  char *config_file){
+
+	FILE *fid;
+	fid = fopen(config_file, "r");
+	if(fid == NULL){
+		printf("file %s does not exist...\n",config_file);
+		exit(-1);
+	}
+
+	char *line = NULL;
+	size_t line_size;
+	integer_t n_bytes;
+
+	while(n_bytes = getline(&line, &line_size, fid) != -1){
+		//printf("read line: %s\n", line);
+		//printf("n bytes: %d, line size: %d\n",n_bytes,line_size);
+		char *data_string = (char *)calloc(32, sizeof(char));
+		int compared = strncmp((const char*)line, "nx",2);
+		if(!compared){
+			printf("match found: %s\n",line);
+		}
+	}
+	fclose(fid);
 	
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
 	PropagatorFields *propagator_fields = (PropagatorFields *)calloc(1, sizeof(PropagatorFields));
@@ -72,7 +93,7 @@ PropagatorSetup *propagator_init(PropagatorConfig *config){
 	config->ny = 256;
 	config->nz = 256;
 
-	config->timesamples = 10000;
+	config->timesamples = 3000;
 
 	config->n_sources = 1;
 	config->n_receivers_x = 256;
@@ -235,15 +256,21 @@ void propagate(PropagatorSetup *setup){
 
 int main(int argc, char *argv[]){
 
+	const char * config_file = "/home/fabian/Documents/git/propagator-3d/src/init_config.par";
+
 	PropagatorConfig propagator_config;
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
-	propagator_setup = propagator_init(&propagator_config);
+
+	propagator_setup = propagator_init(&propagator_config, config_file);
+
 	custom_init(propagator_setup);
+
 	propagate(propagator_setup);
 
 	printf("This is a check...\n");
 
 	free(propagator_setup);
+
 	return 0;
 }
 
