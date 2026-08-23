@@ -7,7 +7,6 @@ delta_z      25.0
 delta_t      0.001
 timesamples  10000
 max_vel      1500.0
-density      2600.0
 cpml_width   32
 cpml_r       1e-4
 freq         3.0

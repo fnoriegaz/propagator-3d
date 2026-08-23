@@ -59,6 +59,41 @@ void custom_init(PropagatorSetup *setup){
 
 }
 
+
+void process_keys(FILE *fid, const char *keys, PropagatorConfig *config){
+
+	char *line = NULL;
+	size_t line_size;
+	size_t n_bytes;
+
+	//read the init par file until EOF. aka getline returns -1
+	while((line_size = getline(&line, &n_bytes, fid)) != -1){
+
+		char *data_string = (char *)calloc(9,sizeof(char));
+		memset(data_string,0x00, 9);
+		int data_str_count = 0;
+
+		for(int k=0;k<n_keys;k++){
+			int key_len = strlen(keys[k]);
+			int compared = strncmp((const char*)line, keys[k],key_len);
+			if(compared == 0){
+				printf("compared: %d, keys[k]: %s, line: %s\n",compared,keys[k],line);
+				//printf("match found: %s\n",line);
+				int count = key_len;
+				while(count < line_size){
+					if(line[count] != ' '){
+						//printf("data string: %c\n",line[count]);
+						data_string[data_str_count] = line[count];
+						data_str_count++;
+					}
+					count++;
+				}
+				config->atoi(data_string));
+			}
+		}
+	}
+}
+
 PropagatorSetup *propagator_init(PropagatorConfig *config, const  char *config_file){
 
 	FILE *fid;
@@ -68,21 +103,33 @@ PropagatorSetup *propagator_init(PropagatorConfig *config, const  char *config_f
 		exit(-1);
 	}
 
-	char *line = NULL;
-	size_t line_size;
-	integer_t n_bytes;
 
-	while(n_bytes = getline(&line, &line_size, fid) != -1){
-		//printf("read line: %s\n", line);
-		//printf("n bytes: %d, line size: %d\n",n_bytes,line_size);
-		char *data_string = (char *)calloc(32, sizeof(char));
-		int compared = strncmp((const char*)line, "nx",2);
-		if(!compared){
-			printf("match found: %s\n",line);
-		}
-	}
-	fclose(fid);
+	// lists of configuration values that are going to be loaded from par file
+	integer_t n_keys_int = 8;
+	integer_t n_keys_float = 7;
+	const char *keys_int[n_keys_int] = {
+		"nx",
+		"ny",
+		"nz",
+		"timesamples",
+		"cpml_width",
+		"src_x",
+		"src_y",
+		"src_z"
+	};
 	
+	const char *keys_float[n_keys_float] = {
+		"delta_x",
+		"delta_y",
+		"delta_z",
+		"delta_t",
+		"max_vel",
+		"cpml_r",
+		"freq",
+	};
+
+	fclose(fid);
+
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
 	PropagatorFields *propagator_fields = (PropagatorFields *)calloc(1, sizeof(PropagatorFields));
 	InversionParams *inversion_params = (InversionParams *)calloc(1, sizeof(InversionParams));
