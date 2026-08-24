@@ -60,11 +60,38 @@ void custom_init(PropagatorSetup *setup){
 }
 
 
-void process_keys(FILE *fid, const char *keys, PropagatorConfig *config){
+void process_config_file(const char* config_file, PropagatorConfig *config){
+
+	FILE *fid;
+	fid = fopen(config_file, "r");
+	if(fid == NULL){
+		printf("file %s does not exist...\n",config_file);
+		exit(-1);
+	}
 
 	char *line = NULL;
 	size_t line_size;
 	size_t n_bytes;
+	integer_t n_keys = 16;
+
+	InitParamEntry param_entry_mapping[16] = {
+		{"nx", &config->nx, TYPE_INTEGER},
+		{"ny", &config->ny, TYPE_INTEGER},
+		{"nz", &config->nz, TYPE_INTEGER},
+		{"timesamples", &config->timesamples, TYPE_INTEGER},
+		{"cpml_width", &config->cpml_width, TYPE_INTEGER},
+		{"n_receivers_x", &config->n_receivers_x, TYPE_INTEGER},
+		{"n_receivers_y", &config->n_receivers_y, TYPE_INTEGER},
+		{"n_sources", &config->n_sources, TYPE_INTEGER},
+		{"receivers_depth", &config->receivers_depth, TYPE_INTEGER},
+		{"delta_x", &config->delta_x, TYPE_FLOAT},
+		{"delta_y", &config->delta_y, TYPE_FLOAT},
+		{"delta_z", &config->delta_z, TYPE_FLOAT},
+		{"delta_t", &config->delta_t, TYPE_FLOAT},
+		{"max_vel", &config->max_vel, TYPE_FLOAT},
+		{"r", &config->r, TYPE_FLOAT},
+		{"freq", &config->freq, TYPE_FLOAT}
+	};
 
 	//read the init par file until EOF. aka getline returns -1
 	while((line_size = getline(&line, &n_bytes, fid)) != -1){
@@ -74,89 +101,40 @@ void process_keys(FILE *fid, const char *keys, PropagatorConfig *config){
 		int data_str_count = 0;
 
 		for(int k=0;k<n_keys;k++){
-			int key_len = strlen(keys[k]);
-			int compared = strncmp((const char*)line, keys[k],key_len);
+			int key_len = strlen((const char*)param_entry_mapping[k].param_name);
+			int compared = strncmp((const char*)line, param_entry_mapping[k].param_name,key_len);
 			if(compared == 0){
-				printf("compared: %d, keys[k]: %s, line: %s\n",compared,keys[k],line);
-				//printf("match found: %s\n",line);
+				printf("compared: %d, keys[%d]: %s, line: %s",compared,k,param_entry_mapping[k].param_name,line);
 				int count = key_len;
 				while(count < line_size){
 					if(line[count] != ' '){
-						//printf("data string: %c\n",line[count]);
 						data_string[data_str_count] = line[count];
 						data_str_count++;
 					}
 					count++;
 				}
-				config->atoi(data_string));
+				if(param_entry_mapping[k].param_type == TYPE_INTEGER){
+					*(integer_t *)param_entry_mapping[k].param = atoi(data_string);
+				}
+				else{
+					*(real_t *)param_entry_mapping[k].param = atof(data_string);
+				}
 			}
 		}
 	}
+	config->propagation_time = config->timesamples * config->delta_t;
+	fclose(fid);
 }
 
-PropagatorSetup *propagator_init(PropagatorConfig *config, const  char *config_file){
-
-	FILE *fid;
-	fid = fopen(config_file, "r");
-	if(fid == NULL){
-		printf("file %s does not exist...\n",config_file);
-		exit(-1);
-	}
-
-
-	// lists of configuration values that are going to be loaded from par file
-	integer_t n_keys_int = 8;
-	integer_t n_keys_float = 7;
-	const char *keys_int[n_keys_int] = {
-		"nx",
-		"ny",
-		"nz",
-		"timesamples",
-		"cpml_width",
-		"src_x",
-		"src_y",
-		"src_z"
-	};
+PropagatorSetup *propagator_init(PropagatorConfig *config, const char *config_file){
 	
-	const char *keys_float[n_keys_float] = {
-		"delta_x",
-		"delta_y",
-		"delta_z",
-		"delta_t",
-		"max_vel",
-		"cpml_r",
-		"freq",
-	};
-
-	fclose(fid);
+	process_config_file(config_file,config);
 
 	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
 	PropagatorFields *propagator_fields = (PropagatorFields *)calloc(1, sizeof(PropagatorFields));
 	InversionParams *inversion_params = (InversionParams *)calloc(1, sizeof(InversionParams));
 	SrcRecGeometry *sr_geometry = (SrcRecGeometry *)calloc(1, sizeof(SrcRecGeometry));
 	CPML *cpml = (CPML *)calloc(1, sizeof(CPML));
-
-	config->nx = 256;
-	config->ny = 256;
-	config->nz = 256;
-
-	config->timesamples = 3000;
-
-	config->n_sources = 1;
-	config->n_receivers_x = 256;
-	config->n_receivers_y = 1;
-	config->receivers_depth = 50;
-
-	config->cpml_width = 32;
-	config->max_vel = 1500.0;
-
-	config->delta_t = 1e-3;
-	config->delta_x = 25.0;
-	config->delta_y = 25.0;
-	config->delta_z = 25.0;
-	config->r = 1e-4;
-	config->freq = 3.0;
-	config->propagation_time = config->timesamples * config->delta_t;
 	
 	cudaMalloc((void **)&propagator_fields->p, config->nx*config->ny*config->nz*sizeof(real_t));
 	cudaMemset(propagator_fields->p, 0.0, config->nx*config->ny*config->nz*sizeof(real_t));

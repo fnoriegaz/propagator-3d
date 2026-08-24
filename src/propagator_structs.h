@@ -3,6 +3,15 @@
 
 #include "../include/propagator/propagator_config.h"
 
+//This specific structs paramtype, initparamentry will be used in the load config data function
+typedef enum {TYPE_INTEGER = 0, TYPE_FLOAT}ParamType;
+
+typedef struct InitParamEntry{
+	const char *param_name;
+	void *param;
+	ParamType param_type;
+}InitParamEntry;
+
 typedef struct PropagatorFields{
 	real_t *p;
 	real_t *vel_x;
