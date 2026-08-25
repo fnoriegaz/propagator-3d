@@ -209,6 +209,39 @@ PropagatorSetup *propagator_init(PropagatorConfig *config, const char *config_fi
 }
 
 
+void propagator_finalize(PropagatorSetup *setup){
+	cudaFree(setup->propagator_fields->p);
+	cudaFree(setup->propagator_fields->vel_x);
+	cudaFree(setup->propagator_fields->vel_y);
+	cudaFree(setup->propagator_fields->vel_z);
+	cudaFree(setup->propagator_fields->lambda);
+	cudaFree(setup->propagator_fields->lambda_x);
+	cudaFree(setup->propagator_fields->lambda_y);
+	cudaFree(setup->propagator_fields->lambda_z);
+
+	cudaFree(setup->sr_geometry->d_source);
+	cudaFree(setup->sr_geometry->d_gather);
+	cudaFree(setup->sr_geometry->d_rec_positions);
+	cudaFree(setup->sr_geometry->d_src_positions);
+
+	cudaFree(setup->inversion_params->d_velocity);
+	cudaFree(setup->inversion_params->d_density);
+
+	cudaFree(setup->cpml->a_x);
+	cudaFree(setup->cpml->a_y);
+	cudaFree(setup->cpml->a_z);
+	cudaFree(setup->cpml->b_x);
+	cudaFree(setup->cpml->b_y);
+	cudaFree(setup->cpml->b_z);
+	cudaFree(setup->cpml->psi_x);
+	cudaFree(setup->cpml->psi_y);
+	cudaFree(setup->cpml->psi_z);
+	cudaFree(setup->cpml->psi_vel_x);
+	cudaFree(setup->cpml->psi_vel_y);
+	cudaFree(setup->cpml->psi_vel_z);
+}
+
+
 void propagate(PropagatorSetup *setup){
 
 	cudaError_t error;
@@ -245,7 +278,6 @@ void propagate(PropagatorSetup *setup){
 	print_cuda_error(error,__FILE__,__func__,__LINE__);
 
 	for(int t=0;t<timesamples;t++){
-		//printf("At iter %d, injecting source value: %f\n",t, setup->sr_geometry->h_source[t]);
 
 		kernel_add_source<<<1,1>>>(setup, src_idx, t);
 		error = cudaGetLastError();
@@ -262,7 +294,6 @@ void propagate(PropagatorSetup *setup){
 		cudaMemcpy(&test_p, setup->propagator_fields->p+src_pos_offset, 1*sizeof(real_t), cudaMemcpyDeviceToHost);
 		error = cudaGetLastError();
 		print_cuda_error(error,__FILE__,__func__,__LINE__);
-		//printf("at iter: %d, p = %f\n",t,test_p);
 
 		//manually copy slices to simulate the shotgather information
 		cudaMemcpy(shotgather+t*nx*ny,setup->propagator_fields->p+32*nx*ny, nx*ny*sizeof(real_t),cudaMemcpyDeviceToHost);
@@ -284,7 +315,7 @@ int main(int argc, char *argv[]){
 	const char * config_file = "/home/fabian/Documents/git/propagator-3d/src/init_config.par";
 
 	PropagatorConfig propagator_config;
-	PropagatorSetup *propagator_setup = (PropagatorSetup *)calloc(1, sizeof(PropagatorSetup));
+	PropagatorSetup *propagator_setup;
 
 	propagator_setup = propagator_init(&propagator_config, config_file);
 
@@ -292,9 +323,9 @@ int main(int argc, char *argv[]){
 
 	propagate(propagator_setup);
 
-	printf("This is a check...\n");
+	propagator_finalize(propagator_setup);
 
-	free(propagator_setup);
+	printf("This is a check...\n");
 
 	return 0;
 }
