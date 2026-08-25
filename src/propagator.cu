@@ -70,8 +70,8 @@ void process_config_file(const char* config_file, PropagatorConfig *config){
 	}
 
 	char *line = NULL;
-	size_t line_size;
-	size_t n_bytes;
+	ssize_t line_size;
+	size_t n_bytes = 0;
 	integer_t n_keys = 16;
 
 	InitParamEntry param_entry_mapping[16] = {
@@ -96,8 +96,8 @@ void process_config_file(const char* config_file, PropagatorConfig *config){
 	//read the init par file until EOF. aka getline returns -1
 	while((line_size = getline(&line, &n_bytes, fid)) != -1){
 
-		char *data_string = (char *)calloc(9,sizeof(char));
-		memset(data_string,0x00, 9);
+		char *data_string = (char *)calloc(16,sizeof(char));
+		memset(data_string,0x00, 16);
 		int data_str_count = 0;
 
 		for(int k=0;k<n_keys;k++){
@@ -110,9 +110,12 @@ void process_config_file(const char* config_file, PropagatorConfig *config){
 					if(line[count] != ' '){
 						data_string[data_str_count] = line[count];
 						data_str_count++;
+
+						if(data_str_count > 16) break; //break the while and then what??
 					}
 					count++;
 				}
+				//i believe in the atoi and atof implementations
 				if(param_entry_mapping[k].param_type == TYPE_INTEGER){
 					*(integer_t *)param_entry_mapping[k].param = atoi(data_string);
 				}
@@ -121,7 +124,10 @@ void process_config_file(const char* config_file, PropagatorConfig *config){
 				}
 			}
 		}
+
+		free(data_string);
 	}
+	free(line);
 	config->propagation_time = config->timesamples * config->delta_t;
 	fclose(fid);
 }
