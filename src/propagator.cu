@@ -6,7 +6,6 @@
 
 #include "propagator_structs.h"
 #include "../include/propagator/propagator.h"
-#include "kernels_constants.cuh"
 #include "kernels.cuh"
 
 
@@ -104,7 +103,6 @@ void process_config_file(const char* config_file, PropagatorConfig *config){
 			int key_len = strlen((const char*)param_entry_mapping[k].param_name);
 			int compared = strncmp((const char*)line, param_entry_mapping[k].param_name,key_len);
 			if(compared == 0){
-				printf("compared: %d, keys[%d]: %s, line: %s",compared,k,param_entry_mapping[k].param_name,line);
 				int count = key_len;
 				while(count < line_size){
 					if(line[count] != ' '){

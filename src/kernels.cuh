@@ -7,6 +7,7 @@
 #include "fdtd.h"
 #include "propagator_structs.h"
 #include "../include/propagator/propagator_constants.h"
+#include "kernels_constants.cuh"
 
 __global__ void kernel_add_source(PropagatorSetup *setup, int src_idx, int t);
 

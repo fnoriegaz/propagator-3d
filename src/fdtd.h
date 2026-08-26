@@ -10,6 +10,13 @@
 
 #include "../include/propagator/propagator_constants.h"
 
+inline __device__ real_t s_compute_stencil_forward(real_t *field, integer_t idx, integer_t stride, real_t delta){
+	float output = (coeff[0] * (field[idx] - field[idx-1*stride]) -
+			coeff[1] * (field[idx+1*stride] - field[idx-2*stride]) +
+			coeff[2] * (field[idx+2*stride] - field[idx-3*stride]) -
+			coeff[3] * (field[idx+3*stride] - field[idx-4*stride])) / delta;
+	return output;
+}
 
 // compute stencil "forward" direction. stride would define which dimenion is derivative being computed for
 inline HOSTDEVICE float compute_stencil_forward(float *field, int idx, int stride, float delta){

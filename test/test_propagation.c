@@ -21,7 +21,5 @@ int main(int argc, char *argv[]){
 
 	propagator_finalize(propagator_setup);
 
-	printf("This is a check...\n");
-
 	return 0;
 }
