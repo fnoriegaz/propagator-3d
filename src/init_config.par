@@ -1,5 +1,5 @@
-nx 1024
-ny 512
+nx 256
+ny 256
 nz 256
 delta_x 25.0
 delta_y 25.0
