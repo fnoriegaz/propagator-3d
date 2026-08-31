@@ -54,6 +54,7 @@ __global__ void kernel_dpdt(PropagatorSetup *setup){
 	real_t front[4];
 	real_t behind[4];
 
+
 	//load behind and front once
 	for(integer_t l=0;l<STENCIL;l++){
 		integer_t tid_global_behind = tx + (ty + l * config->ny) * config->nx;
@@ -143,40 +144,103 @@ __global__ void kernel_dpdt(PropagatorSetup *setup){
 
 __global__ void kernel_dvdxyz(PropagatorSetup *setup){
 	
+	PropagatorConfig *__restrict__ config = setup->propagator_config;
+	PropagatorFields *__restrict__ fields = setup->propagator_fields;
+	InversionParams *__restrict__ params = setup->inversion_params;
+	CPML *__restrict__ cpml = setup->cpml;
+
+	integer_t s_tx = threadIdx.x;
+	integer_t s_ty = threadIdx.y;
 	integer_t tx = threadIdx.x + blockIdx.x * blockDim.x;
 	integer_t ty = threadIdx.y + blockIdx.y * blockDim.y;
-	integer_t tz = threadIdx.z + blockIdx.z * blockDim.z;
-	integer_t tid_global = tx + (ty + tz * setup->propagator_config->ny) * setup->propagator_config->nx;
 
-	real_t r_psi_x = setup->cpml->psi_x[tid_global];
-	real_t r_psi_y = setup->cpml->psi_y[tid_global];
-	real_t r_psi_z = setup->cpml->psi_z[tid_global];
+	__shared__ real_t s_p[(2*STENCIL+TPBX)*(2*STENCIL+TPBY)];
 	
+	real_t front[4];
+	real_t behind[4];
+	real_t dp_dx, dp_dy, dp_dz;
 
-	if(tx > 2 && tx < (setup->propagator_config->nx-4) && ty > 2 && ty < (setup->propagator_config->ny-4) && tz > 2 && tz < (setup->propagator_config->nz-4)){
+	//load behind and front once
+	for(integer_t l=0;l<STENCIL;l++){
+		integer_t tid_global_behind = tx + (ty + l * config->ny) * config->nx;
+		integer_t tid_global_front = tx + (ty + (l+STENCIL) * config->ny) * config->nx;
+		front[l] = fields->p[tid_global_front];
+		behind[STENCIL-1-l] = fields->p[tid_global_behind];
+	}
 
-		real_t dp_dx = compute_stencil_backward(setup->propagator_fields->p, tid_global, 1, setup->propagator_config->delta_x);
-		real_t dp_dy = compute_stencil_backward(setup->propagator_fields->p, tid_global, setup->propagator_config->nx, setup->propagator_config->delta_y);
-		real_t dp_dz = compute_stencil_backward(setup->propagator_fields->p, tid_global, setup->propagator_config->nx*setup->propagator_config->ny, setup->propagator_config->delta_z);
+	for(integer_t tz=STENCIL-1;tz<config->nz;tz++){
 
-		//update psi fields rather than in separate kernel call
-		r_psi_x = r_psi_x * setup->cpml->a_x[tx] + setup->cpml->b_x[tx] * dp_dx;
-		r_psi_y = r_psi_y * setup->cpml->a_y[ty] + setup->cpml->b_y[ty] * dp_dy;
-		r_psi_z = r_psi_z * setup->cpml->a_z[tz] + setup->cpml->b_z[tz] * dp_dz;
+		integer_t tid_global = tx + (ty + tz * config->ny) * config->nx;
+		integer_t tid_global_front = tx + (ty + (tz+STENCIL) * config->ny) * config->nx;
 
-		setup->propagator_fields->vel_x[tid_global] = setup->propagator_fields->vel_x[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dx  + r_psi_x);
+		real_t r_psi_x = setup->cpml->psi_x[tid_global];
+		real_t r_psi_y = setup->cpml->psi_y[tid_global];
+		real_t r_psi_z = setup->cpml->psi_z[tid_global];
 
-		setup->propagator_fields->vel_y[tid_global] = setup->propagator_fields->vel_y[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dy  + r_psi_y);
+		//copy center block inside shared memory
+		if(tx < config->nx && ty < config->ny && tz < config->nz){
+			s_p[s_tx+STENCIL + (s_ty+STENCIL)*(TPBX+2*STENCIL)] = fields->p[tid_global];
+		}
+		//copy left side halo inside shared memory. duplicating first STENCIL elements per x slice
+		if(s_tx < STENCIL && tx >= STENCIL && ty < config->ny && tz < config->nz){
+			s_p[s_tx + (s_ty+STENCIL)*(TPBX+2*STENCIL)] = fields->p[tid_global - STENCIL];
+		}
+		//copy right side halo inside shared memory. duplicating last STENCIL elements per x slice(+TPBX offset)
+		if(s_tx < STENCIL && tx < (config->nx-TPBX) && ty < config->ny && tz < config->nz){
+			s_p[s_tx+TPBX+STENCIL + (s_ty+STENCIL)*(TPBX+2*STENCIL)] = fields->p[tid_global + TPBX];
+		}
+		//back side halo copy inside shared memory
+		if(tx < config->nx && s_ty < STENCIL && ty >= STENCIL && tz < config->nz){
+			s_p[s_tx+STENCIL + s_ty*(TPBX+2*STENCIL)] = fields->p[tid_global - STENCIL*config->nx];
+		}
+		//front side halo copy inside shared memory
+		if(tx < config->nx && s_ty < STENCIL && ty < (config->ny-TPBY) && tz < config->nz){
+			s_p[s_tx+STENCIL + (s_ty+STENCIL+TPBY)*(TPBX+2*STENCIL)] = fields->p[tid_global + TPBY*config->nx];
+		}
+		__syncthreads();
+	
+		if(tx >= STENCIL && tx < (config->nx-STENCIL) && ty >= STENCIL && ty < (config->ny-STENCIL) && tz >= STENCIL && tz < (config->nz-STENCIL)){
 
-		setup->propagator_fields->vel_z[tid_global] = setup->propagator_fields->vel_z[tid_global] -
-			setup->propagator_config->delta_t * (2.0 / setup->inversion_params->d_density[tid_global]) * (dp_dz  + r_psi_z);
+			integer_t tid_shared = s_tx+STENCIL + (s_ty+STENCIL)*(2*STENCIL+TPBX);
 
-		setup->cpml->psi_x[tid_global] = r_psi_x;
-		setup->cpml->psi_y[tid_global] = r_psi_y;
-		setup->cpml->psi_z[tid_global] = r_psi_z;
+			dp_dx = s_compute_stencil_backward(s_p, tid_shared, 1, config->delta_x);
+			dp_dy = s_compute_stencil_backward(s_p, tid_shared, TPBX+2*STENCIL, config->delta_y);
 
+			//update psi fields rather than in separate kernel call
+			r_psi_x = r_psi_x * cpml->a_x[tx] + cpml->b_x[tx] * dp_dx;
+			r_psi_y = r_psi_y * cpml->a_y[ty] + cpml->b_y[ty] * dp_dy;
+		}
+
+		if(tx > 2 && tx < (config->nx-4) && ty > 2 && ty < (config->ny-4) && tz > 2 && tz < (config->nz-4)){
+
+
+			dp_dz = compute_stencil_backward_z(front, behind, config->delta_z);
+			r_psi_z = r_psi_z * cpml->a_z[tz] + cpml->b_z[tz] * dp_dz;
+
+			//update psi fields rather than in separate kernel call
+			fields->vel_x[tid_global] = fields->vel_x[tid_global] -
+			config->delta_t * (2.0 / params->d_density[tid_global]) * (dp_dx  + r_psi_x);
+
+			fields->vel_y[tid_global] = fields->vel_y[tid_global] -
+			config->delta_t * (2.0 / params->d_density[tid_global]) * (dp_dy  + r_psi_y);
+
+			fields->vel_z[tid_global] = fields->vel_z[tid_global] -
+			config->delta_t * (2.0 / params->d_density[tid_global]) * (dp_dz  + r_psi_z);
+
+			cpml->psi_x[tid_global] = r_psi_x;
+			cpml->psi_y[tid_global] = r_psi_y;
+			cpml->psi_z[tid_global] = r_psi_z;
+
+			behind[3] = behind[2];
+			behind[2] = behind[1];
+			behind[1] = behind[0];
+			behind[0] = front[0];
+			front[0] = front[1];
+			front[1] = front[2];
+			front[2] = front[3];
+			front[3] = fields->p[tid_global_front];
+			
+		}
 	}
 }
 

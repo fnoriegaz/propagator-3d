@@ -262,6 +262,8 @@ void propagate(PropagatorSetup *setup){
 
 	dim3 tpb(TPBX,TPBY,TPBZ);
 	dim3 bpg((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY,(nz+TPBZ-1)/TPBZ);
+	dim3 tpb2d(TPBX,TPBY);
+	dim3 bpg2d((nx+TPBX-1)/TPBX,(ny+TPBY-1)/TPBY);
 
 	kernel_cpml<<<(nx+TPBX-1)/TPBX,TPBX>>>(setup->cpml->a_x, setup->cpml->b_x, nx, setup->propagator_config->freq,
 				 setup->propagator_config->r, setup->propagator_config->delta_x, setup->propagator_config->delta_t,
@@ -280,18 +282,18 @@ void propagate(PropagatorSetup *setup){
 				 setup->propagator_config->max_vel, setup->propagator_config->cpml_width);
 	error = cudaGetLastError();
 	print_cuda_error(error,__FILE__,__func__,__LINE__);
-
+timesamples=1;
 	for(int t=0;t<timesamples;t++){
 
 		kernel_add_source<<<1,1>>>(setup, src_idx, t);
 		error = cudaGetLastError();
 		print_cuda_error(error,__FILE__,__func__,__LINE__);
 
-		kernel_dpdt<<<bpg,tpb>>>(setup);
+		kernel_dpdt<<<bpg2d,tpb2d>>>(setup);
 		error = cudaGetLastError();
 		print_cuda_error(error,__FILE__,__func__,__LINE__);
 
-		kernel_dvdxyz<<<bpg,tpb>>>(setup);
+		kernel_dvdxyz<<<bpg2d,tpb2d>>>(setup);
 		error = cudaGetLastError();
 		print_cuda_error(error,__FILE__,__func__,__LINE__);
 
